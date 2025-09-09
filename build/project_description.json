@@ -1,7 +1,7 @@
 {
     "version":            "1.1",
     "project_name":       "impresora",
-    "project_version":    "1",
+    "project_version":    "d37954a-dirty",
     "project_path":       "D:/Documents/Tesis/Codigos/impresora",
     "idf_path":           "D:/ESP-IDF",
     "build_dir":          "D:/Documents/Tesis/Codigos/impresora/build",
