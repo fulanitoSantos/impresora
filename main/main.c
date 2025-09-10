@@ -11,8 +11,8 @@
 #include "Mylibraries.h"
 #include "cJSON.h"
 #include "libreriajson.h"
-static QueueHandle_t uart0_queue; // Cola para eventos de UART0
-#define UART0 UART_NUM_0
+static QueueHandle_t uart2_queue; // Cola para eventos de UART2
+#define UART2 UART_NUM_2
 static char buffer_acumulado[256] = {0};
 static int buffer_index = 0;
 int servo_numero = 0;
@@ -78,7 +78,7 @@ static void init_uart(uart_port_t uart_num, int tx_pin, int rx_pin, QueueHandle_
     printf("UART%d initialized on TX pin %d, RX pin %d\n", uart_num, tx_pin, rx_pin);
 }
 // Tarea para manejar eventos UART0
-static void uart0_event_task(void *pvParameters)
+static void uart2_event_task(void *pvParameters)
 {
     uart_event_t event;
     uint8_t *data = (uint8_t *)malloc(BUF_SIZE);
@@ -86,13 +86,13 @@ static void uart0_event_task(void *pvParameters)
     while (true)
     {
         // Espera de eventos en la cola UART
-        if (xQueueReceive(uart0_queue, (void *)&event, portMAX_DELAY))
+        if (xQueueReceive(uart2_queue, (void *)&event, portMAX_DELAY))
         {
             switch (event.type)
             {
             case UART_DATA: // Datos recibidos
                 // Leer los datos del buffer UART
-                int len = uart_read_bytes(UART0, data, event.size, portMAX_DELAY);
+                int len = uart_read_bytes(UART2, data, event.size, portMAX_DELAY);
                 data[len] = '\0'; // Asegurar que los datos son una cadena
 
                 // Procesar cada carácter recibido
@@ -105,7 +105,7 @@ static void uart0_event_task(void *pvParameters)
                         buffer_acumulado[buffer_index] = '\0'; // Terminar la cadena
                         printf("Mensaje completo recibido: %s\n", buffer_acumulado);
                         // Aquí puedes procesar el mensaje completo
-                        verificar_y_procesar_uart(buffer_acumulado);
+                        // verificar_y_procesar_uart(buffer_acumulado);
                         // Limpiar el buffer para el próximo mensaje
                         buffer_index = 0;
                         memset(buffer_acumulado, 0, sizeof(buffer_acumulado));
@@ -130,14 +130,14 @@ static void uart0_event_task(void *pvParameters)
 
             case UART_FIFO_OVF: // Desbordamiento de FIFO
                 printf("¡Desbordamiento de FIFO!\n");
-                uart_flush_input(UART0);
-                xQueueReset(uart0_queue);
+                uart_flush_input(UART2);
+                xQueueReset(uart2_queue);
                 break;
 
             case UART_BUFFER_FULL: // Buffer lleno
                 printf("¡Buffer lleno!\n");
-                uart_flush_input(UART0);
-                xQueueReset(uart0_queue);
+                uart_flush_input(UART2);
+                xQueueReset(uart2_queue);
                 break;
 
             case UART_BREAK:
@@ -162,6 +162,7 @@ static void uart0_event_task(void *pvParameters)
     free(data);
     vTaskDelete(NULL);
 }
+
 void uart_printf(uart_port_t uart_num, const char *fmt, ...)
 {
     char buffer[UART_TX_BUFFER_SIZE];
@@ -308,26 +309,31 @@ void fin_de_carrera_task(void *param)
 void app_main()
 {
     // Init i2cdev library
-    ESP_ERROR_CHECK(pca9658_init());
-    configurar_gpio();
-    init_gpio_output();
-    set_pwm();
-    init_uart(UART0, 1, 3, &uart0_queue); // UART0 TX: GPIO01, RX: GPIO3
+    // ESP_ERROR_CHECK(pca9658_init());
+    // configurar_gpio();
+    // init_gpio_output();
+    // set_pwm();
+    init_uart(UART2, 16, 17, &uart2_queue); // UART0 TX: GPIO01, RX: GPIO3
     // Crear tareas para manejar eventos UART
     xTaskCreate(fin_de_carrera_task, "fin_carrera_task", 2048, NULL, 5, NULL);
-    xTaskCreate(uart0_event_task, "uart0_event_task", 2048, NULL, 10, NULL);
+    xTaskCreate(uart2_event_task, "uart2_event_task", 2048, NULL, 11, NULL);
     inicializar_sistema_json();
-    init_pap();
+    // init_pap();
     while (true)
+    {
+        printf("esperando mensajes\n");
+        uart_printf(UART2, "mensaje desde uart2\n|");
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+    while (false)
     {
         printf("Estado de fin de carrera 1: %s\n", fin_carrera_1_activo ? "Activo" : "Inactivo");
         printf("Estado de fin de carrera 2: %s\n", fin_carrera_2_activo ? "Activo" : "Inactivo");
         printf("Estado de fin de papel: %s\n", papel_activo ? "Activo" : "Inactivo");
         printf("Estado de fin de movimiento: %s\n", movimiento_activo ? "Activo" : "Inactivo");
-        
+
         if (listo_para_imprimir)
         {
-
             tomar_hoja();
             vTaskDelay(pdMS_TO_TICKS(500));
             while (papel_activo)
@@ -335,18 +341,18 @@ void app_main()
                 tomar_hoja();
                 vTaskDelay(pdMS_TO_TICKS(1000));
             }
-            
+
             for (int i = 0; i < max_jsons; i++)
             {
-                
+
                 for (int j = 0; j < 28; j++)
                 {
                     printf("Procesando JSON %d, caracter %d: valor=%d, char='%c'\n",
-                           i + 1, j + 1, (int) matriz_numeros[i][j], matriz_numeros[i][j]);
+                           i + 1, j + 1, (int)matriz_numeros[i][j], matriz_numeros[i][j]);
 
                     // Verificar si llegamos al final de la cadena
-                   
-                    if (matriz_numeros[i][j] == '0'|| matriz_numeros[i][j] == '\0')
+
+                    if (matriz_numeros[i][j] == '0' || matriz_numeros[i][j] == '\0')
                     {
                         printf("Carácter '0' detectado\n");
                         StepIz(40);
@@ -356,11 +362,11 @@ void app_main()
                         printf("Procesando carácter: %c\n", matriz_numeros[i][j]);
                         braille(matriz_numeros[i][j]);
                         StepIz(40);
-                        //vTaskDelay(pdMS_TO_TICKS(700));
+                        // vTaskDelay(pdMS_TO_TICKS(700));
                         mover_actuador();
                     }
                 }
-                
+
                 fin_linea();
                 mover_linea();
             }

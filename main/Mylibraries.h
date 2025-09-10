@@ -33,8 +33,6 @@ int step_delay_us;
 #define BUF_SIZE 1024
 #define UART_TX_BUFFER_SIZE 1024
 #define BUFFER_SIZE 20000
-static QueueHandle_t uart0_queue; // Cola para eventos de UART0
-#define UART0 UART_NUM_0
 i2c_dev_t dev; // Variable global para el PCA9685
 // actuador
 #define PIN_ACTUADOR GPIO_NUM_15
@@ -155,9 +153,6 @@ esp_err_t init_gpio_output()
 // funciones para el pap
 esp_err_t set_pwm()
 {
-
-
-
 
     ledc_channel_config_t chanelconfigB = {0};
     chanelconfigB.gpio_num = 25;
@@ -310,8 +305,8 @@ void tomar_hoja()
 {
     duty_motor1 = 900;
     duty_motor2 = 50;
-    //expulsar la hoja actual
-    Motor_dir_h(1,800);
+    // expulsar la hoja actual
+    Motor_dir_h(1, 800);
     vTaskDelay(pdMS_TO_TICKS(700)); // 3 segundos
     Motor_dir_h(2, 0);
     vTaskDelay(pdMS_TO_TICKS(500));
@@ -320,14 +315,15 @@ void tomar_hoja()
     vTaskDelay(pdMS_TO_TICKS(50));
     Motor_dir_h(2, 0);
     vTaskDelay(pdMS_TO_TICKS(500));
-  // Mover a la derecha (IN1 = 0, IN2 = 1)
+    // Mover a la derecha (IN1 = 0, IN2 = 1)
     duty_motor1 = 1023;
-    Motor_dir_h(1,1023);
+    Motor_dir_h(1, 1023);
     vTaskDelay(pdMS_TO_TICKS(170)); // 3 segundos
     Motor_dir_h(2, 0);
 }
 
-void mover_linea(){
+void mover_linea()
+{
     Motor_dir_h(1, 800);
     vTaskDelay(pdMS_TO_TICKS(50));
     Motor_dir_h(2, 0);
